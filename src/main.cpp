@@ -15,6 +15,9 @@ Imu imu(20);
 
 adi::DigitalOut doublePark('G');
 adi::DigitalOut lift('H');
+adi::DigitalOut hood('A');
+adi::DigitalOut matchloader('B');
+adi::DigitalOut descore('C');
 
 void on_center_button() {}
 
@@ -36,34 +39,48 @@ void opcontrol() {
 
 	bool doubleParkState = false;
 	bool liftState = false;
+	bool hoodState = false;
+	bool matchloaderState = false;
+	bool descoreState = false;
 
 	while (true) {
 
-		if(master.get_digital(DIGITAL_R1)) {
+		if(master.get_digital(DIGITAL_R1)){
 			intake.move(127);
-		} else if(master.get_digital(DIGITAL_R2)) {
+			hoodState = false;
+		} else if(master.get_digital(DIGITAL_R2)){
 			intake.move(-127);
-		} else {
+			hoodState = true;
+		} else{
 			intake.move(0);
-		}
+			hoodState = false;
+		}		
 
-		if(master.get_digital(DIGITAL_L1)) {
-			stickMotor.move(50);
-		} 
-		else if(master.get_digital(DIGITAL_L2)) {
-			stickMotor.move(-50);
-		} else {
+
+		if(hoodState == true){
+			hood.set_value(true);
+			while(stickRotation.get_angle() > 31){
+				stickMotor.move(-50);
+			}
 			stickMotor.move(0);
+
+		} else {
+			hood.set_value(false);
 		}
 
-		if(master.get_digital_new_press(DIGITAL_A)){
+		if(master.get_digital_new_press(DIGITAL_L1)){
 			doubleParkState = !doubleParkState;
 			doublePark.set_value(doubleParkState);
 		}
 
-		if(master.get_digital_new_press(DIGITAL_B)){
+		if(master.get_digital_new_press(DIGITAL_L2)){
 			liftState = !liftState;
 			lift.set_value(liftState);
+		}
+
+		if(master.get_digital_new_press(DIGITAL_A)){
+			matchloaderState = !matchloaderState;
+			matchloader.set_value(matchloaderState);
 		}
 
 		int dir = master.get_analog(ANALOG_LEFT_Y);    
