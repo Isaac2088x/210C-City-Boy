@@ -1,5 +1,7 @@
 #include "main.h"
 #include "pros/adi.hpp"
+#include "pros/llemu.hpp"
+#include "pros/rtos.hpp"
 
 using namespace pros;
 
@@ -23,7 +25,6 @@ void on_center_button() {}
 
 void initialize() {
 	lcd::initialize();
-	lcd::set_text(1, "EFN EFN EFN EFN");
 	stickRotation.reset();
 	imu.reset();
 }
@@ -38,35 +39,37 @@ void autonomous() {}
 void opcontrol() {
 
 	bool doubleParkState = false;
-	bool liftState = false;
+	bool liftState = true;
 	bool hoodState = false;
 	bool matchloaderState = false;
 	bool descoreState = false;
 
+	lift.set_value(liftState);
+
 	while (true) {
 
-		if(master.get_digital(DIGITAL_R1)){
+		
+
+		if(master.get_digital(DIGITAL_R1) && master.get_digital(DIGITAL_R2)){
+			intake.move(-127);
+			hoodState = false;
+		} else if(master.get_digital(DIGITAL_R1)){
 			intake.move(127);
 			hoodState = false;
 		} else if(master.get_digital(DIGITAL_R2)){
-			intake.move(-127);
+			intake.move(127);
 			hoodState = true;
-		} else{
+			stickMotor.move_voltage(12000);
+		} else {
 			intake.move(0);
-			hoodState = false;
+			if(stickRotation.get_angle() < 350) { 
+                stickMotor.move_voltage(-4000);  
+            } else {
+                stickMotor.move_voltage(0); 
+            }
 		}		
 
-
-		if(hoodState == true){
-			hood.set_value(true);
-			while(stickRotation.get_angle() > 31){
-				stickMotor.move(-50);
-			}
-			stickMotor.move(0);
-
-		} else {
-			hood.set_value(false);
-		}
+		hood.set_value(hoodState);
 
 		if(master.get_digital_new_press(DIGITAL_L1)){
 			doubleParkState = !doubleParkState;
@@ -86,7 +89,9 @@ void opcontrol() {
 		int dir = master.get_analog(ANALOG_LEFT_Y);    
 		int turn = -master.get_analog(ANALOG_RIGHT_X) * 0.7;  
 		DriveL.move(dir - turn);  
-		DriveR.move(dir + turn);      
+		DriveR.move(dir + turn);   
+	
+
 		pros::delay(10); 
 	}         
 }
