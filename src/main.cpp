@@ -2,7 +2,9 @@
 #include "pros/adi.hpp"
 #include "pros/llemu.hpp"
 #include "pros/misc.h"
+#include "pros/rtos.h"
 #include "pros/rtos.hpp"
+#include <cstdint>
 
 using namespace pros;
 
@@ -19,7 +21,7 @@ Imu imu(20);
 adi::DigitalOut doublePark('G');
 adi::DigitalOut lift('H');
 adi::DigitalOut hood('E');
-adi::DigitalOut matchloader('B');
+adi::DigitalOut matchloader('D');
 adi::DigitalOut descore('C');
 
 void on_center_button() {}
@@ -27,11 +29,11 @@ void on_center_button() {}
 void initialize() {
 	lcd::initialize();
 	stickRotation.reverse();
-	stickRotation.reset();
+	stickRotation.reset_position();
 	imu.reset();
 	Task screenTask([]{
 		while(true){
-			lcd::set_text(1, "Stick Angle: " + std::to_string(stickRotation.get_angle()));
+			lcd::set_text(1, "Stick Angle: " + std::to_string(stickRotation.get_position()/100));
 			lcd::set_text(2, "IMU Heading: " + std::to_string(imu.get_heading()));
 			pros::delay(10);
 		}
@@ -44,12 +46,11 @@ void competition_initialize() {}
 
 void autonomous() {}
 
-
 void opcontrol() {
 
 	bool doubleParkState = false;
 	bool liftState = true;
-	bool hoodState = false;
+	bool hoodState = true;
 	bool matchloaderState = false;
 	bool descoreState = false;
 
@@ -57,33 +58,43 @@ void opcontrol() {
 
 	while (true) {
 
-
-		if(master.get_digital(DIGITAL_R1) && master.get_digital(DIGITAL_R2) && liftState == false && stickRotation.get_angle() > 32900){
-			hoodState = true;
-			stickMotor.move_voltage(12000);
-		}else if(master.get_digital(DIGITAL_R1) && master.get_digital(DIGITAL_R2) && liftState == true && stickRotation.get_angle() < 33000){
-			hoodState = true;
-			stickMotor.move_voltage(12000);
-		} else if(master.get_digital(DIGITAL_R1)){
+		if(master.get_digital(DIGITAL_R1) && master.get_digital(DIGITAL_R2)){
+			if(liftState == false && stickRotation.get_position()/100 < 300){
+				stickMotor.move_voltage(12000);
+				hoodState = false;
+			}
+			else if(liftState == true && stickRotation.get_position()/100 < 300){
+				stickMotor.move_voltage(12000);
+				hoodState = false;
+			}
+			else{
+				stickMotor.brake();
+			}
+		} else if(master.get_digital(DIGITAL_R1)){ 
 			intake.move_voltage(12000);
-		}
-		else if(master.get_digital(DIGITAL_R2)){
-			hoodState = false;
+		} else if(master.get_digital(DIGITAL_R2)){
 			intake.move_voltage(-12000);
-		}else{
+		} else {
 			intake.move_voltage(0);
-			if(stickRotation.get_angle() > 500){
-				stickMotor.move_voltage(-12000);
-			}else{
+			hoodState = true;
+			if(stickRotation.get_position()/100 < 10){
 				stickMotor.move_voltage(0);
+			}
+			else{
+				stickMotor.move_voltage(-6000);
 			}
 		}
 
 		hood.set_value(hoodState);
 
-		if(master.get_digital_new_press(DIGITAL_L1)){
+		if(master.get_digital_new_press(DIGITAL_B)){
 			doubleParkState = !doubleParkState;
 			doublePark.set_value(doubleParkState);
+		}
+
+		if(master.get_digital_new_press(DIGITAL_A)){
+			matchloaderState = !matchloaderState;
+			matchloader.set_value(matchloaderState);
 		}
 
 		if(master.get_digital_new_press(DIGITAL_L2)){
@@ -91,10 +102,12 @@ void opcontrol() {
 			lift.set_value(liftState);
 		}
 
-		if(master.get_digital_new_press(DIGITAL_A)){
-			matchloaderState = !matchloaderState;
-			matchloader.set_value(matchloaderState);
+		if(master.get_digital(DIGITAL_L1)){
+			descoreState = false;
+		} else {
+			descoreState = true;
 		}
+		descore.set_value(descoreState);
 
 		int dir = master.get_analog(ANALOG_LEFT_Y);    
 		int turn = -master.get_analog(ANALOG_RIGHT_X) * 0.7;  
