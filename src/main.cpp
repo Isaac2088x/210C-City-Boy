@@ -1,6 +1,7 @@
 #include "main.h"
 #include "pros/adi.hpp"
 #include "pros/llemu.hpp"
+#include "pros/misc.h"
 #include "pros/rtos.hpp"
 
 using namespace pros;
@@ -17,7 +18,7 @@ Imu imu(20);
 
 adi::DigitalOut doublePark('G');
 adi::DigitalOut lift('H');
-adi::DigitalOut hood('A');
+adi::DigitalOut hood('E');
 adi::DigitalOut matchloader('B');
 adi::DigitalOut descore('C');
 
@@ -25,8 +26,16 @@ void on_center_button() {}
 
 void initialize() {
 	lcd::initialize();
+	stickRotation.reverse();
 	stickRotation.reset();
 	imu.reset();
+	Task screenTask([]{
+		while(true){
+			lcd::set_text(1, "Stick Angle: " + std::to_string(stickRotation.get_angle()));
+			lcd::set_text(2, "IMU Heading: " + std::to_string(imu.get_heading()));
+			pros::delay(10);
+		}
+	});
 }
 
 void disabled() {}
@@ -48,26 +57,27 @@ void opcontrol() {
 
 	while (true) {
 
-		
 
-		if(master.get_digital(DIGITAL_R1) && master.get_digital(DIGITAL_R2)){
-			intake.move(-127);
-			hoodState = false;
-		} else if(master.get_digital(DIGITAL_R1)){
-			intake.move(127);
-			hoodState = false;
-		} else if(master.get_digital(DIGITAL_R2)){
-			intake.move(127);
+		if(master.get_digital(DIGITAL_R1) && master.get_digital(DIGITAL_R2) && liftState == false && stickRotation.get_angle() > 32900){
 			hoodState = true;
 			stickMotor.move_voltage(12000);
-		} else {
-			intake.move(0);
-			if(stickRotation.get_angle() < 350) { 
-                stickMotor.move_voltage(-4000);  
-            } else {
-                stickMotor.move_voltage(0); 
-            }
-		}		
+		}else if(master.get_digital(DIGITAL_R1) && master.get_digital(DIGITAL_R2) && liftState == true && stickRotation.get_angle() < 33000){
+			hoodState = true;
+			stickMotor.move_voltage(12000);
+		} else if(master.get_digital(DIGITAL_R1)){
+			intake.move_voltage(12000);
+		}
+		else if(master.get_digital(DIGITAL_R2)){
+			hoodState = false;
+			intake.move_voltage(-12000);
+		}else{
+			intake.move_voltage(0);
+			if(stickRotation.get_angle() > 500){
+				stickMotor.move_voltage(-12000);
+			}else{
+				stickMotor.move_voltage(0);
+			}
+		}
 
 		hood.set_value(hoodState);
 
