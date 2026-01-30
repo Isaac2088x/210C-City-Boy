@@ -54,6 +54,8 @@ void opcontrol() {
 	bool matchloaderState = false;
 	bool descoreState = false;
 
+	int timeout = 0;
+
 	lift.set_value(liftState);
 
 	while (true) {
@@ -69,6 +71,7 @@ void opcontrol() {
 			}
 			else{
 				stickMotor.brake();
+				stickMotor.move_voltage(0);
 			}
 		} else if(master.get_digital(DIGITAL_R1)){ 
 			intake.move_voltage(12000);
@@ -77,11 +80,16 @@ void opcontrol() {
 		} else {
 			intake.move_voltage(0);
 			hoodState = true;
-			if(stickRotation.get_position()/100 < 10){
-				stickMotor.move_voltage(0);
-			}
-			else{
+			if (timeout < 700 && stickRotation.get_position()/100 > 10){
+				timeout++;
 				stickMotor.move_voltage(-6000);
+			} else {
+				stickMotor.brake();
+				stickMotor.move_voltage(0);
+				timeout = 0;
+				if(stickRotation.get_position()/100 > 5){
+					stickRotation.reset_position();
+				}
 			}
 		}
 
@@ -102,11 +110,16 @@ void opcontrol() {
 			lift.set_value(liftState);
 		}
 
-		if(master.get_digital(DIGITAL_L1)){
+		if(liftState == true){
+			descoreState = true;
+		} else if (liftState == true && master.get_digital(DIGITAL_L1)){
+			descoreState = false;
+		} else if (liftState == false){
 			descoreState = false;
 		} else {
-			descoreState = true;
+			descoreState = false;
 		}
+
 		descore.set_value(descoreState);
 
 		int dir = master.get_analog(ANALOG_LEFT_Y);    
