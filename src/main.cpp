@@ -6,6 +6,7 @@
 #include "pros/rtos.hpp"
 #include <cstdint>
 
+
 using namespace pros;
 
 Controller master(E_CONTROLLER_MASTER);
@@ -30,11 +31,14 @@ void initialize() {
 	lcd::initialize();
 	stickRotation.reverse();
 	stickRotation.reset_position();
+	stickRotation.reset();
+	int setPoint = stickRotation.get_angle();
 	imu.reset();
 	Task screenTask([]{
 		while(true){
 			lcd::set_text(1, "Stick Angle: " + std::to_string(stickRotation.get_position()/100));
 			lcd::set_text(2, "IMU Heading: " + std::to_string(imu.get_heading()));
+			lcd::set_text(3, "SVelocity: " + std::to_string(stickRotation.get_velocity()));
 			pros::delay(10);
 		}
 	});
@@ -50,11 +54,11 @@ void opcontrol() {
 
 	bool doubleParkState = false;
 	bool liftState = true;
-	bool hoodState = true;
+	bool hoodState = false;
 	bool matchloaderState = false;
-	bool descoreState = false;
+	bool descoreState;
 
-	int timeout = 0;
+	int armTimeout = 0;
 
 	lift.set_value(liftState);
 
@@ -62,10 +66,12 @@ void opcontrol() {
 
 		if(master.get_digital(DIGITAL_R1) && master.get_digital(DIGITAL_R2)){
 			if(liftState == false && stickRotation.get_position()/100 < 300){
+				intake.move_voltage(12000);
 				stickMotor.move_voltage(12000);
 				hoodState = false;
 			}
-			else if(liftState == true && stickRotation.get_position()/100 < 300){
+			else if(liftState == true && stickRotation.get_position()/100 < 330){
+				intake.move_voltage(12000);
 				stickMotor.move_voltage(12000);
 				hoodState = false;
 			}
@@ -74,23 +80,33 @@ void opcontrol() {
 				stickMotor.move_voltage(0);
 			}
 		} else if(master.get_digital(DIGITAL_R1)){ 
+			hoodState = true;
 			intake.move_voltage(12000);
 		} else if(master.get_digital(DIGITAL_R2)){
+			hoodState = true;
 			intake.move_voltage(-12000);
 		} else {
 			intake.move_voltage(0);
-			hoodState = true;
-			if (timeout < 700 && stickRotation.get_position()/100 > 10){
-				timeout++;
-				stickMotor.move_voltage(-6000);
+			hoodState = false;
+
+			if(abs(stickRotation.get_velocity()) < 5) {
+				armTimeout += 10;
 			} else {
-				stickMotor.brake();
+				armTimeout = 0;
+			}	
+
+			if (armTimeout > 500) {   
 				stickMotor.move_voltage(0);
-				timeout = 0;
-				if(stickRotation.get_position()/100 > 5){
-					stickRotation.reset_position();
-				}
+				stickRotation.reset_position(); 
+				armTimeout = 0;
 			}
+
+			if(stickRotation.get_position()/100 < 30){
+				stickMotor.move_voltage(0);
+			} else {
+				stickMotor.move_voltage(-6000);
+			}
+
 		}
 
 		hood.set_value(hoodState);
@@ -110,12 +126,10 @@ void opcontrol() {
 			lift.set_value(liftState);
 		}
 
-		if(liftState == true){
+		if (liftState == true && master.get_digital(DIGITAL_L1)){
+			descoreState = false;
+		} else if(liftState == true){
 			descoreState = true;
-		} else if (liftState == true && master.get_digital(DIGITAL_L1)){
-			descoreState = false;
-		} else if (liftState == false){
-			descoreState = false;
 		} else {
 			descoreState = false;
 		}
