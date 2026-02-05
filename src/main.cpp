@@ -40,6 +40,10 @@ void autonomous() {
 
 	switch (autonthing) {
 		case 0:
+			chassis.setPose(0,0,0);
+			Lift.set_value(true);
+			Hood.set_value(true);
+			Intake.move_voltage(12000);
 			chassis.moveToPoint(10, 33, 2000);
 			delay(600);
 			Match.set_value(true);
@@ -88,10 +92,6 @@ void autonomous() {
 			break;
 
 	}
-	chassis.setPose(0,0,0);
-	Lift.set_value(true);
-	Hood.set_value(true);
-	Intake.move_voltage(12000);
 
 	
 
@@ -143,7 +143,7 @@ void opcontrol() {
 				Stick.move_voltage(0);
 				StickRot.reset_position();
 			} else if (StickRot.get_position()/100 > 20){
-				Stick.move_velocity(-5000);
+				Stick.move_voltage(-5000);
 			} else {
 				Stick.move_voltage(0);
 			}
