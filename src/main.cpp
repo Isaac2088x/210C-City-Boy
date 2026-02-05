@@ -140,11 +140,13 @@ void opcontrol() {
 			hoodState = true;
 
 			if(abs(StickRot.get_velocity()) < 10) {
-				StickRot.reset_position(); 
 				Stick.move_voltage(0);
-			} else {
+				StickRot.reset_position();
+			} else if (StickRot.get_position()/100 > 20){
 				Stick.move_velocity(-5000);
-			}	
+			} else {
+				Stick.move_voltage(0);
+			}
 
 		}
 
