@@ -33,8 +33,13 @@
  * For instance, you can do `4_mtr = 50` to set motor 4's target velocity to 50
  */
 #define PROS_USE_LITERALS
-
-#include "api.h"
+#include "pros/adi.hpp" // IWYU pragma: keep
+#include "pros/llemu.hpp" // IWYU pragma: keep
+#include "pros/misc.h" // IWYU pragma: keep
+#include "pros/rtos.h" // IWYU pragma: keep
+#include "pros/rtos.hpp" // IWYU pragma: keep
+#include <cstdint> // IWYU pragma: keep
+#include "api.h" // IWYU pragma: keep
 
 /**
  * You should add more #includes here

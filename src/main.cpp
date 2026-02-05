@@ -1,113 +1,179 @@
 #include "main.h"
-#include "pros/adi.hpp"
-#include "pros/llemu.hpp"
-#include "pros/misc.h"
-#include "pros/rtos.h"
-#include "pros/rtos.hpp"
-#include <cstdint>
+#include "globals.cpp"
+#include "lemlib/api.hpp"
+#include "lemlib/chassis/chassis.hpp"
 
 using namespace pros;
 
-Controller master(E_CONTROLLER_MASTER);
-MotorGroup DriveL({-1, -3, -4});
-MotorGroup DriveR({5, 6, 7});
-
-Motor intake(11);
-Motor stickMotor(19);
-
-Rotation stickRotation(18);
-Imu imu(20);
-
-adi::DigitalOut doublePark('G');
-adi::DigitalOut lift('H');
-adi::DigitalOut hood('E');
-adi::DigitalOut matchloader('D');
-adi::DigitalOut descore('C');
 
 void on_center_button() {}
 
 void initialize() {
 	lcd::initialize();
-	stickRotation.reverse();
-	stickRotation.reset_position();
-	imu.reset();
-	Task screenTask([]{
-		while(true){
-			lcd::set_text(1, "Stick Angle: " + std::to_string(stickRotation.get_position()/100));
-			lcd::set_text(2, "IMU Heading: " + std::to_string(imu.get_heading()));
-			pros::delay(10);
-		}
+	StickRot.reverse();
+	StickRot.reset_position();
+	StickRot.reset();
+	Lift.set_value(true);
+	int setPoint = StickRot.get_angle();
+
+	Task calibrateTask([]{
+		chassis.calibrate();
 	});
+
+// 	Task screenTask([]{
+// 		while(true){
+// 			lcd::set_text(1, "Stick Angle: " + std::to_string(StickRot.get_position()/100));
+// 			lcd::set_text(2, "IMU Heading: " + std::to_string(imu.get_heading()));
+// 			lcd::set_text(3, "Velocity: " + std::to_string(StickRot.get_velocity()));
+// 			pros::delay(10);
+// 		}
+// 	});
 }
 
 void disabled() {}
 
 void competition_initialize() {}
 
-void autonomous() {}
+int autonthing = 1;
+
+void autonomous() {
+
+	switch (autonthing) {
+		case 0:
+			chassis.moveToPoint(10, 33, 2000);
+			delay(600);
+			Match.set_value(true);
+			chassis.turnToHeading(60, 1900);
+			delay(100);
+			Match.set_value(false);
+			chassis.moveToPoint(31, 41, 1800);
+			delay(300);
+			Match.set_value(true);
+			chassis.moveToPoint(16, 20, 3000, {.forwards = false});
+			chassis.moveToPoint(34, 12, 5000);
+			delay(200);
+			Match.set_value(false);
+			chassis.turnToHeading(180, 2000);
+			delay(100);
+			chassis.moveToPoint(34, 27, 1500, {.forwards = false});
+			Hood.set_value(false);
+			delay(300);
+			Stick.move_voltage(12000);
+			delay(500);
+			Stick.move_voltage(-7000);
+			delay(300);
+			Stick.move_voltage(0);
+			Match.set_value(true);
+			chassis.moveToPoint(34, -9, 2000);
+			delay(300);
+			chassis.moveToPoint(34, 0, 2000);
+			delay(300);
+			Match.set_value(false);
+			chassis.turnToHeading(310, 1500);
+			chassis.moveToPoint(-6, 38, 2500);
+			delay(800);
+			Intake.move_voltage(-7000);
+			delay(500);
+			Wing.set_value(true);
+			chassis.moveToPoint(23, 25, 2000, {.forwards = false});
+			chassis.turnToHeading(180, 1500);
+			delay(100);
+			Wing.set_value(false);
+			delay(200);
+			chassis.moveToPoint(23, 34, 1500, {.forwards = false});
+			break;
+
+		case 1:
+
+			break;
+
+	}
+	chassis.setPose(0,0,0);
+	Lift.set_value(true);
+	Hood.set_value(true);
+	Intake.move_voltage(12000);
+
+	
+
+
+
+
+}
 
 void opcontrol() {
 
 	bool doubleParkState = false;
-	bool liftState = true;
+	bool LiftState = true;
 	bool hoodState = true;
 	bool matchloaderState = false;
-	bool descoreState = false;
+	bool descoreState;
 
-	lift.set_value(liftState);
+	int armTimeout = 0;
+
+	Lift.set_value(LiftState);
 
 	while (true) {
 
 		if(master.get_digital(DIGITAL_R1) && master.get_digital(DIGITAL_R2)){
-			if(liftState == false && stickRotation.get_position()/100 < 300){
-				stickMotor.move_voltage(12000);
+			if(LiftState == false && StickRot.get_position()/100 < 300){
+				Intake.move_voltage(12000);
+				Stick.move_voltage(12000);
 				hoodState = false;
 			}
-			else if(liftState == true && stickRotation.get_position()/100 < 300){
-				stickMotor.move_voltage(12000);
+			else if(LiftState == true && StickRot.get_position()/100 < 330){
+				Intake.move_voltage(12000);
+				Stick.move_voltage(12000);
 				hoodState = false;
 			}
 			else{
-				stickMotor.brake();
+				Stick.brake();
+				Stick.move_voltage(0);
 			}
 		} else if(master.get_digital(DIGITAL_R1)){ 
-			intake.move_voltage(12000);
-		} else if(master.get_digital(DIGITAL_R2)){
-			intake.move_voltage(-12000);
-		} else {
-			intake.move_voltage(0);
 			hoodState = true;
-			if(stickRotation.get_position()/100 < 10){
-				stickMotor.move_voltage(0);
-			}
-			else{
-				stickMotor.move_voltage(-6000);
-			}
+			Intake.move_voltage(12000);
+		} else if(master.get_digital(DIGITAL_R2)){
+			hoodState = true;
+			Intake.move_voltage(-12000);
+		} else {
+			Intake.move_voltage(0);
+			hoodState = true;
+
+			if(abs(StickRot.get_velocity()) < 10) {
+				StickRot.reset_position(); 
+				Stick.move_voltage(0);
+			} else {
+				Stick.move_velocity(-5000);
+			}	
+
 		}
 
-		hood.set_value(hoodState);
+		Hood.set_value(hoodState);
 
 		if(master.get_digital_new_press(DIGITAL_B)){
 			doubleParkState = !doubleParkState;
-			doublePark.set_value(doubleParkState);
+			Park.set_value(doubleParkState);
 		}
 
 		if(master.get_digital_new_press(DIGITAL_A)){
 			matchloaderState = !matchloaderState;
-			matchloader.set_value(matchloaderState);
+			Match.set_value(matchloaderState);
 		}
 
 		if(master.get_digital_new_press(DIGITAL_L2)){
-			liftState = !liftState;
-			lift.set_value(liftState);
+			LiftState = !LiftState;
+			Lift.set_value(LiftState);
 		}
 
-		if(master.get_digital(DIGITAL_L1)){
+		if (LiftState == true && master.get_digital(DIGITAL_L1)){
 			descoreState = false;
-		} else {
+		} else if(LiftState == true){
 			descoreState = true;
+		} else {
+			descoreState = false;
 		}
-		descore.set_value(descoreState);
+
+		Wing.set_value(descoreState);
 
 		int dir = master.get_analog(ANALOG_LEFT_Y);    
 		int turn = -master.get_analog(ANALOG_RIGHT_X) * 0.7;  
