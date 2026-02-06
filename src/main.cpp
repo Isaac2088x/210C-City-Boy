@@ -1,7 +1,5 @@
 #include "main.h"
-#include "globals.cpp"
-#include "lemlib/api.hpp"
-#include "lemlib/chassis/chassis.hpp"
+#include "globals.hpp"
 
 using namespace pros;
 
@@ -14,20 +12,20 @@ void initialize() {
 	StickRot.reset_position();
 	StickRot.reset();
 	Lift.set_value(true);
-	int setPoint = StickRot.get_angle();
+	
+	// Task calibrateTask([]{
+	// 	chassis.calibrate();
+	// });
 
-	Task calibrateTask([]{
-		chassis.calibrate();
+	Task screenTask([]{
+		while(true){
+			lcd::set_text(1, "Stick Angle: " + std::to_string(StickRot.get_position()/100));
+			lcd::set_text(2, "IMU Heading: " + std::to_string(imu.get_heading()));
+			lcd::set_text(3, "Velocity: " + std::to_string(StickRot.get_velocity()));
+			lcd::set_text(4, "Front Limit: " + std::to_string(FrontLimit.get_value()));
+			pros::delay(10);
+		}
 	});
-
-// 	Task screenTask([]{
-// 		while(true){
-// 			lcd::set_text(1, "Stick Angle: " + std::to_string(StickRot.get_position()/100));
-// 			lcd::set_text(2, "IMU Heading: " + std::to_string(imu.get_heading()));
-// 			lcd::set_text(3, "Velocity: " + std::to_string(StickRot.get_velocity()));
-// 			pros::delay(10);
-// 		}
-// 	});
 }
 
 void disabled() {}
@@ -40,6 +38,10 @@ void autonomous() {
 
 	switch (autonthing) {
 		case 0:
+			chassis.setPose(0,0,0);
+			Lift.set_value(true);
+			Hood.set_value(true);
+			Intake.move_voltage(12000);
 			chassis.moveToPoint(10, 33, 2000);
 			delay(600);
 			Match.set_value(true);
@@ -88,10 +90,6 @@ void autonomous() {
 			break;
 
 	}
-	chassis.setPose(0,0,0);
-	Lift.set_value(true);
-	Hood.set_value(true);
-	Intake.move_voltage(12000);
 
 	
 
@@ -102,25 +100,27 @@ void autonomous() {
 
 void opcontrol() {
 
+	int button = 0;
+
 	bool doubleParkState = false;
-	bool LiftState = true;
+	bool LiftState = false;
 	bool hoodState = true;
 	bool matchloaderState = false;
 	bool descoreState;
-
-	int armTimeout = 0;
 
 	Lift.set_value(LiftState);
 
 	while (true) {
 
+		button = FrontLimit.get_value();
+
 		if(master.get_digital(DIGITAL_R1) && master.get_digital(DIGITAL_R2)){
-			if(LiftState == false && StickRot.get_position()/100 < 300){
+			if(LiftState == false && StickRot.get_position()/100 < 240){
 				Intake.move_voltage(12000);
 				Stick.move_voltage(12000);
 				hoodState = false;
 			}
-			else if(LiftState == true && StickRot.get_position()/100 < 330){
+			else if(LiftState == true && StickRot.get_position()/100 < 250){
 				Intake.move_voltage(12000);
 				Stick.move_voltage(12000);
 				hoodState = false;
@@ -135,20 +135,19 @@ void opcontrol() {
 		} else if(master.get_digital(DIGITAL_R2)){
 			hoodState = true;
 			Intake.move_voltage(-12000);
+		} else if(button == 1){
+			Stick.move_voltage(0);
+			StickRot.reset_position();
+		} else if(abs(StickRot.get_position())/100 > 30){
+			Stick.move_voltage(-12000); 
 		} else {
 			Intake.move_voltage(0);
 			hoodState = true;
-
-			if(abs(StickRot.get_velocity()) < 10) {
-				Stick.move_voltage(0);
-				StickRot.reset_position();
-			} else if (StickRot.get_position()/100 > 20){
-				Stick.move_velocity(-5000);
-			} else {
-				Stick.move_voltage(0);
-			}
-
+			button = 0;
+			Stick.move_voltage(0);
 		}
+
+
 
 		Hood.set_value(hoodState);
 
@@ -167,9 +166,9 @@ void opcontrol() {
 			Lift.set_value(LiftState);
 		}
 
-		if (LiftState == true && master.get_digital(DIGITAL_L1)){
+		if (LiftState == false && master.get_digital(DIGITAL_L1)){
 			descoreState = false;
-		} else if(LiftState == true){
+		} else if(LiftState == false){
 			descoreState = true;
 		} else {
 			descoreState = false;
