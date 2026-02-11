@@ -1,101 +1,46 @@
 #include "main.h"
-#include "globals.hpp"
-
-using namespace pros;
-
-
-void on_center_button() {}
+#include "global.hpp"
+#include "lemlib/api.hpp"
+#include "auton.hpp"
 
 void initialize() {
-	lcd::initialize();
-	StickRot.reverse();
+    pros::lcd::initialize();
 	StickRot.reset_position();
-	StickRot.reset();
-	Lift.set_value(true);
-	
-	// Task calibrateTask([]{
-	// 	chassis.calibrate();
-	// });
+	chassis.calibrate();
 
-	Task screenTask([]{
-		while(true){
-			lcd::set_text(1, "Stick Angle: " + std::to_string(StickRot.get_position()/100));
-			lcd::set_text(2, "IMU Heading: " + std::to_string(imu.get_heading()));
-			lcd::set_text(3, "Velocity: " + std::to_string(StickRot.get_velocity()));
-			lcd::set_text(4, "Front Limit: " + std::to_string(FrontLimit.get_value()));
-			pros::delay(10);
-		}
-	});
 }
+
+void on_center_button() {}
 
 void disabled() {}
 
 void competition_initialize() {}
 
-int autonthing = 1;
+int auton = 4;
+
 
 void autonomous() {
-
-	switch (autonthing) {
+	switch (auton) {
 		case 0:
-			chassis.setPose(0,0,0);
-			Lift.set_value(true);
-			Hood.set_value(true);
-			Intake.move_voltage(12000);
-			chassis.moveToPoint(10, 33, 2000);
-			delay(600);
-			Match.set_value(true);
-			chassis.turnToHeading(60, 1900);
-			delay(100);
-			Match.set_value(false);
-			chassis.moveToPoint(31, 41, 1800);
-			delay(300);
-			Match.set_value(true);
-			chassis.moveToPoint(16, 20, 3000, {.forwards = false});
-			chassis.moveToPoint(34, 12, 5000);
-			delay(200);
-			Match.set_value(false);
-			chassis.turnToHeading(180, 2000);
-			delay(100);
-			chassis.moveToPoint(34, 27, 1500, {.forwards = false});
-			Hood.set_value(false);
-			delay(300);
-			Stick.move_voltage(12000);
-			delay(500);
-			Stick.move_voltage(-7000);
-			delay(300);
-			Stick.move_voltage(0);
-			Match.set_value(true);
-			chassis.moveToPoint(34, -9, 2000);
-			delay(300);
-			chassis.moveToPoint(34, 0, 2000);
-			delay(300);
-			Match.set_value(false);
-			chassis.turnToHeading(310, 1500);
-			chassis.moveToPoint(-6, 38, 2500);
-			delay(800);
-			Intake.move_voltage(-7000);
-			delay(500);
-			Wing.set_value(true);
-			chassis.moveToPoint(23, 25, 2000, {.forwards = false});
-			chassis.turnToHeading(180, 1500);
-			delay(100);
-			Wing.set_value(false);
-			delay(200);
-			chassis.moveToPoint(23, 34, 1500, {.forwards = false});
+			None();
 			break;
-
 		case 1:
-
+			OneInch();
 			break;
-
+		case 2:
+			LeftGen();
+			break;
+		case 3:
+			RightGen();
+			break;
+		case 4:
+			LeftElim();
+			break;
+		case 5:
+			SAWP();
+			break;
 	}
-
-	
-
-
-
-
+	return;
 }
 
 void opcontrol() {
@@ -106,10 +51,10 @@ void opcontrol() {
 	bool LiftState = false;
 	bool hoodState = true;
 	bool matchloaderState = false;
-	bool descoreState;
+	bool descoreState = false;
 
-	Lift.set_value(LiftState);
-
+	Stick.move_voltage(0);
+	chassis.cancelAllMotions();
 	while (true) {
 
 		button = FrontLimit.get_value();
@@ -118,23 +63,23 @@ void opcontrol() {
 			if(LiftState == false && StickRot.get_position()/100 < 240){
 				Intake.move_voltage(12000);
 				Stick.move_voltage(12000);
-				hoodState = false;
+				hoodState = true;
 			}
 			else if(LiftState == true && StickRot.get_position()/100 < 250){
 				Intake.move_voltage(12000);
 				Stick.move_voltage(12000);
-				hoodState = false;
+				hoodState = true;
 			}
 			else{
 				Stick.brake();
 				Stick.move_voltage(0);
 			}
 		} else if(master.get_digital(DIGITAL_R1)){ 
-			hoodState = true;
+			hoodState = false;
 			Intake.move_voltage(12000);
 		} else if(master.get_digital(DIGITAL_R2)){
-			hoodState = true;
-			Intake.move_voltage(-12000);
+			hoodState = false;
+			Intake.move_voltage(-8400);
 		} else if(button == 1){
 			Stick.move_voltage(0);
 			StickRot.reset_position();
@@ -142,7 +87,7 @@ void opcontrol() {
 			Stick.move_voltage(-12000); 
 		} else {
 			Intake.move_voltage(0);
-			hoodState = true;
+			hoodState = false;
 			button = 0;
 			Stick.move_voltage(0);
 		}
@@ -183,5 +128,5 @@ void opcontrol() {
 	
 
 		pros::delay(10); 
-	}         
-}
+	}             
+} 

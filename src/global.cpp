@@ -1,5 +1,6 @@
-#include "lemlib/api.hpp"
-#include "pros/adi.hpp"
+#include "main.h"
+#include "global.hpp"
+#include "lemlib/api.hpp" 
 
 pros::Controller master(pros::E_CONTROLLER_MASTER);
 pros::MotorGroup DriveL({-1, -3, -4});
